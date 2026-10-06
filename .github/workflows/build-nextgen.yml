@@ -1,0 +1,62 @@
+name: Build LiquidBounce 1.8.9 + DynamicIsland
+
+# 说明：这个 workflow 文件放在 nextgen（默认）分支，
+#       但构建时显式检出 legacy 分支的代码（含灵动岛移植）。
+#       这样做的原因：GitHub 只让默认分支上的 workflow 支持手动触发。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      # 关键：显式检出 legacy 分支
+      - name: 检出 legacy 分支代码
+        uses: actions/checkout@v4
+        with:
+          ref: legacy
+          submodules: recursive
+
+      - name: 确认分支与文件
+        run: |
+          echo "当前分支: $(git rev-parse --abbrev-ref HEAD)"
+          echo "--- 灵动岛文件是否存在 ---"
+          ls -la src/main/java/net/ccbluex/liquidbounce/ui/client/hud/element/elements/DynamicIsland.kt
+          echo "--- HUD.kt 是否已注册 ---"
+          grep -n "DynamicIsland" src/main/java/net/ccbluex/liquidbounce/ui/client/hud/HUD.kt
+
+      - name: 安装 JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: "adopt"
+          java-version: 8
+          cache: "gradle"
+
+      - name: 缓存 ForgeGradle 工作目录
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/.gradle/caches
+          key: lb-legacy-forge-${{ hashFiles('build.gradle', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            lb-legacy-forge-
+
+      - name: 赋予 gradlew 执行权限
+        run: chmod +x ./gradlew
+
+      - name: 构建
+        run: ./gradlew build
+
+      - name: 列出构建产物
+        run: ls -la build/libs/
+
+      - name: 上传 jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: liquidbounce-1.8.9-dynamicisland
+          path: build/libs/*.jar
+          if-no-files-found: error
