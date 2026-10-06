@@ -42,7 +42,8 @@ object HUD : MinecraftInstance {
         SpeedGraph::class.java,
         Cooldown::class.java,
         Taco::class.java,
-        Keystrokes::class.java
+        Keystrokes::class.java,
+        DynamicIsland::class.java
     )
 
     val ELEMENTS = ALL_ELEMENT_CLASSES.associateWithTo(IdentityHashMap(ALL_ELEMENT_CLASSES.size)) {
@@ -61,6 +62,7 @@ object HUD : MinecraftInstance {
         addElement(Armor())
         addElement(Effects())
         addElement(Notifications())
+        addElement(DynamicIsland())
         addElement(Keystrokes())
     }
 
