@@ -1,0 +1,67 @@
+name: Build LiquidBounce 1.8.9 + DynamicIsland
+
+# 触发方式：
+#   1. 手动触发（推荐，手机上点一下就能跑）
+#   2. 推送到 legacy 分支时自动触发
+#
+# 说明：本配置刻意贴近 LiquidBounce 官方 CI 的做法，
+#       因为官方 CI 至今仍能成功构建 legacy 分支，成功率最高。
+#       与官方的区别：去掉了最后一步"上传到 liquidbounce.net"
+#       （那需要官方密钥），改成上传 GitHub Artifact 供你下载。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ legacy ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      # 官方 CI 用 submodules: recursive，务必保留
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 官方 CI 用 adopt / java 8 —— ForgeGradle 必须跑在 JDK 8 上
+      - name: 安装 JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: "adopt"
+          java-version: 8
+          cache: "gradle"
+
+      # 首次构建需反编译 MC 1.8.9，约 20-40 分钟；缓存后 5-10 分钟
+      # setup-java 的 cache:"gradle" 只缓存 ~/.gradle/caches，这里额外缓存
+      # ForgeGradle 的工作目录，避免每次都重新反编译
+      - name: 额外缓存 ForgeGradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/.gradle/caches
+          key: lb-legacy-forge-${{ hashFiles('build.gradle', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            lb-legacy-forge-
+
+      - name: 赋予 gradlew 执行权限
+        run: chmod +x ./gradlew
+
+      # 与官方 CI 完全一致的构建命令
+      - name: 构建
+        run: ./gradlew build
+
+      # 列出产物，方便排查
+      - name: 列出构建产物
+        run: ls -la build/libs/
+
+      # 上传 jar（官方 CI 是传到 liquidbounce.net，这里改成 Artifact）
+      - name: 上传 jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: liquidbounce-1.8.9-dynamicisland
+          path: build/libs/*.jar
+          if-no-files-found: error
